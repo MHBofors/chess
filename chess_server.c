@@ -4,11 +4,13 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <errno.h>
 
+#include <poll.h>
+
+#include "inet_socket.h"
 #include "chess.h"
 #include "chess_io.h"
-
-extern int errno;
 
 void err_exit(const char *message) {
 	perror(message);
@@ -21,35 +23,31 @@ int main(int argc, const char *argv[]) {
 	
 	struct sockaddr_in sockaddr = {0};
 	
-	if(argc < 2) {
+	if(argc < 3) {
 		printf("missing args\n");
 		exit(1);
 	}
 	
-	getopt(argc, argv, "i:");
-	addr_str = strndup(optarg, 21);
-	
-	strtok(addr_str, ":");
-	port_str = strtok(NULL, ":");	
-
-	switch(inet_pton(AF_INET, addr_str, &sockaddr.sin_addr) != 0) {
-	case 0:
-		printf("invalid address");
-		break;
-	case -1:
-		err_exit("address parsing failed");	
-		break;
-	default:
-		sockaddr.sin_port = atoi(port_str);
-		printf("address valid\n");
-	}	
-	
-	if((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) err_exit("server socket");
-	
-	if(bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) == -1) err_exit("server socket bind");		
 	printf("opening socket at address %s:%s\n", addr_str, port_str);	
 	
-	sleep(10);
+	if((sockfd = inet_bind(argv[1], argv[2], SOCK_STREAM)) == -1)
+		err_exit("binding");	
+	
+	if(listen(sockfd, 1) == -1)
+	       err_exit("listen");
+
+	struct sockaddr caddr;
+	socklen_t clen;
+
+	printf("waiting for connection\n");	
+	if((clientfd = accept(clientfd, &caddr, &clen)) == -1)
+		err_exit("accept");
+	
+	char buf[8];
+	while(read(sockfd, buf, 8) > 0) {
+		if(write(STDOUT_FILENO, buf, 8) == -1)
+			err_exit("write");
+	}	
 
 	printf("closing socket\n");
 	close(sockfd);
