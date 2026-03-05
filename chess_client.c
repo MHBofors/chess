@@ -18,7 +18,7 @@ void err_exit(const char *message) {
 }
 
 int main(int argc, const char *argv[]) {
-	int sockfd = 0, clientfd = 0, opt;
+	int sockfd = 0, opt;
 	const char *addr_str = "err", *port_str = "err";	
 	
 	struct sockaddr_in sockaddr = {0};
@@ -28,17 +28,32 @@ int main(int argc, const char *argv[]) {
 		exit(1);
 	}
 	
-	printf("opening socket at address %s:%s\n", addr_str, port_str);	
-	
+	addr_str = argv[1]; 
+	port_str = argv[2];
 	if((sockfd = inet_connect(argv[1], argv[2], SOCK_STREAM)) == -1)
 		err_exit("connect");	
 	
-	char buf[8];
-	while(read(STDIN_FILENO, buf, 8)) {
-		if(write(sockfd, buf, 8) == -1)
+	printf("connected to socket at address %s:%s\n", addr_str, port_str);	
+
+	char buf[8] = {0};
+	ssize_t nread;
+
+	for(;;) {
+		switch(nread = read(STDIN_FILENO, buf, 8)) {
+		case -1:
+			err_exit("read");
 			break;
-	}	
-	
+		case 0:
+			goto end;
+			break;
+		default:
+			if(write(sockfd, buf, nread) == -1)
+				err_exit("write");
+			break;
+		}	
+	}
+
+end:
 	printf("closing socket\n");
 	close(sockfd);
 	return EXIT_SUCCESS;
